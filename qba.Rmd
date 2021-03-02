@@ -1,0 +1,273 @@
+---
+title: "Reproduce the plots in TOWARD BETTER BIAS ANALYSIS"
+author: "Paul Gustafson"
+date: "03/01/2021"
+output: pdf_document
+---
+
+Production plots require extra plotting code
+
+```{r}
+PRDCTN <- F
+if (PRDCTN) {
+source("C:/Users/paulg/ownCloud/OPUS2/Rcode/AuxFunctions.R")
+}
+```
+
+Simulate from the posterior distribution
+
+```{r}
+logit <- function(p) {log(p)-log(1-p)}
+
+m <- 400000
+plt <- sample(1:m, size=500)   ### don't saturate plots with ink
+set.seed(13)
+
+th.0.hat <- 103/(103+844)
+th.1.hat <- 118/(118+832)
+
+th.0 <- rbeta(m, 1+103, 1+884)
+th.1 <- rbeta(m, 1+118, 1+832)
+
+ppv.0 <- rbeta(m, 1+18, 1+4)
+npv.0 <- rbeta(m, 1+130, 1+13)
+
+ppv.1 <- rbeta(m, 1+24,1+2)
+npv.1 <- rbeta(m, 1+144, 1+19)
+
+r.0 <- th.0*ppv.0 + (1-th.0)*(1-npv.0)
+sn.0 <- th.0*ppv.0/r.0
+sp.0 <- 1 - th.0*(1-ppv.0)/(1-r.0)
+
+r.1 <- th.1*ppv.1 + (1-th.1)*(1-npv.1)
+sn.1 <- th.1*ppv.1/r.1
+sp.1 <- 1 - th.1*(1-ppv.1)/(1-r.1)
+```
+
+Generate some summaries and analyses
+
+
+```{r}
+ans.nv <- logit(th.1)-logit(th.0)
+
+sn.0.hat <- 18/31
+sn.1.hat <- 24/43
+
+sp.0.hat <- 130/134
+sp.1.hat <- 144/146
+
+### point correction - wrong
+ans.nv2 <- logit(th.1/sn.1.hat) - logit(th.0/sn.0.hat)
+
+### point correction -better
+ans.nv3 <- logit((th.1-(1-sp.1.hat))/(sn.1.hat+sp.1.hat-1)) -
+           logit((th.0-(1-sp.0.hat))/(sn.0.hat+sp.0.hat-1))
+
+### fully adjusted
+ans.adj <- logit(r.1)-logit(r.0)
+```
+
+Fully adjusted inference
+
+```{r}
+round(exp(quantile(ans.adj, c(.025, .5, .975))),2)
+```
+
+Figure 1
+
+```{r}
+
+if (PRDCTN) {
+  pdf.PG("Fig1.pdf",2,2,ttlspc=T)
+  par(cex=0.6)
+  par(oma=c(2,2,2,0))
+  par(mar=c(3, 2.8, 1.7, 2))
+} else {
+  par(mfrow=c(2,2))
+}
+
+# Part A)
+
+plot(sn.0[plt],exp(ans.adj[plt]),
+     pch=".", log="y", xaxt='n', yaxt='n', frame=F, 
+     xlim=c(0.3,0.7), ylim=c(0.5,3.0),
+     ylab="Odds Ratio", xlab=expression(Sn[0]), main="")
+axis(1, at=seq(from=.3, to=.7, by=0.1), pos=0.5)
+axis(2, at=c(0.5,1.0,1.5,2.0,3.0), pos=.3, las=1)
+
+# ref line - null
+points(c(0.3,0.7), c(1,1), type="l", lty=2)
+
+# ref line - LS
+tmp <- lm(ans.adj~sn.0)
+gr <- c(.3,.7)
+points(gr, exp(tmp$coef[1]+gr*tmp$coef[2]), type="l")
+
+# Part B)
+
+plot(sp.0[plt],exp(ans.adj[plt]),
+     pch=".", log="y", xaxt='n', yaxt='n', frame=F,
+     xlim=c(0.94,1), ylim=c(0.5,3.0),
+     xlab=expression(Sp[0]), ylab="Odds Ratio", main="")
+
+axis(1, at=seq(from=0.94, to=1, by=0.02), pos=0.5)
+axis(2, at=c(0.5,1.0,1.5,2.0,3.0), pos=.94, las=1)
+
+# ref line - null
+points(c(0.94,1), c(1,1), type="l", lty=2)
+
+# ref line - LS
+tmp <- lm(ans.adj~sp.0)
+gr <- c(.94,1)
+points(gr, exp(tmp$coef[1]+gr*tmp$coef[2]), type="l")
+
+# Part C)
+
+plot(sn.1[plt],exp(ans.adj[plt]),
+     pch=".", log="y", xaxt='n', yaxt='n', frame=F, 
+     xlim=c(0.3,0.7), ylim=c(0.5,3.0),
+     ylab="Odds Ratio", xlab=expression(Sn[1]), main="")
+
+axis(1, at=seq(from=.3, to=.7, by=0.1), pos=0.5)
+axis(2, at=c(0.5,1.0,1.5,2.0,3.0), pos=.3, las=1)
+
+# ref line - null
+points(c(0.3,0.7), c(1,1), type="l", lty=2)
+
+# ref line - LS     
+tmp <- lm(ans.adj~sn.1)
+gr <- c(.3,.7)
+points(gr, exp(tmp$coef[1]+gr*tmp$coef[2]), type="l")
+
+# Part D)
+plot(sp.1[plt],exp(ans.adj[plt]),
+     pch=".", log="y", xaxt='n', yaxt='n', frame=F,
+     xlim=c(0.94,1), ylim=c(0.5,3.0),
+     xlab=expression(Sp[1]), ylab="Odds Ratio", main="")
+
+axis(1, at=seq(from=0.94, to=1, by=0.02), pos=0.5)
+axis(2, at=c(0.5,1.0,1.5,2.0,3.0), pos=.94, las=1)
+
+# ref line - null
+points(c(0.94,1), c(1,1), type="l", lty=2)
+
+# ref line - LS
+tmp <- lm(ans.adj~sp.1)
+gr <- c(.94,1)
+points(gr, exp(tmp$coef[1]+gr*tmp$coef[2]), type="l")
+
+if (PRDCTN) {
+  graphics.off()
+}  
+```
+
+Figure 2
+
+```{r}
+if (PRDCTN) {
+  pdf.PG("Fig2.pdf",1,1)
+  par(cex=0.6)
+  par(oma=c(2,2,2,0))
+}
+
+gr <- seq(from=(-.038), to=0.038, length=501)
+
+### vary sn.0.hat
+tmp <- logit((th.1.hat-(1-sp.1.hat))/(sn.1.hat+sp.1.hat-1)) -
+       logit((th.0.hat-(1-sp.0.hat))/(sn.0.hat+gr+sp.0.hat-1))
+
+plot(gr, exp(tmp), xaxt='n', yaxt='n', frame=F, 
+     log="y",type="l", 
+     xlim=c(-0.04,.04),
+     ylim=c(1,3),
+     xlab=expression(delta),ylab="Odds Ratio")
+
+axis(1, at=seq(from=-0.4, to=0.4, by=0.02), pos=1)
+axis(2, at=c(1,1.5,2.0,3.0), pos=-.043, las=1)
+
+
+legend(0.02,2.95, 
+  legend=c(expression(Sn[0]), expression(Sn[1]),
+           expression(Sp[0]), expression(Sp[1])), 
+  lty=1:4,
+  title=expression(underline("Parameter varied")))
+
+  
+
+
+### vary sn.1.hat
+tmp <- logit((th.1.hat-(1-sp.1.hat))/(sn.1.hat+gr+sp.1.hat-1)) -
+       logit((th.0.hat-(1-sp.0.hat))/(sn.0.hat+gr+sp.0.hat-1))
+points(gr,exp(tmp), type="l", lty=2)
+
+### vary sp.0.hat
+ndx <- ((sp.0.hat+gr)<1)
+
+tmp <- logit((th.1.hat-(1-sp.1.hat))/(sn.1.hat+sp.1.hat-1)) -
+  logit((th.0.hat-(1-(sp.0.hat+gr[ndx])))/(sn.0.hat+sp.0.hat+gr[ndx]-1))
+
+points(gr[ndx], exp(tmp), 
+  type="l", lty=3)
+
+### vary sp.1.hat
+ndx <- ((sp.1.hat+gr)<1)
+
+tmp <- logit((th.1.hat-(1-(sp.1.hat+gr[ndx])))/(sn.1.hat+sp.1.hat+gr[ndx]-1)) -
+  logit((th.0.hat-(1-sp.0.hat))/(sn.0.hat+sp.0.hat-1))
+
+points(gr[ndx], exp(tmp), type="l",lty=4)
+
+
+if (PRDCTN) {
+  graphics.off()
+}
+```
+
+
+Figure 3
+
+```{r}
+if (PRDCTN) {
+  pdf.PG("Fig3.pdf",1,1)
+  par(cex=0.6)
+  par(oma=c(2,2,2,0))
+}
+
+tmp <- abs(sn.0-sn.1) +
+       abs(sp.0-sp.1)
+
+plot(tmp[plt], exp(ans.adj[plt]),
+     pch=".",log="y", xaxt='n', yaxt='n', frame=F,
+     xlim=c(0,.3), ylim=c(0.5,3),
+     ylab="Odds Ratio", xlab=expression(lambda))
+
+axis(1, at=seq(from=0, to=0.3, by=0.1), pos=0.5)
+axis(2, at=c(0.5,1.0,1.5,2.0,3.0), pos=0, las=1)
+
+points(c(0,.3),c(1,1), type="l",lty=2)
+
+if (PRDCTN) {
+  graphics.off()
+}  
+```
+
+Posterior prob effect is negative, overall, then stratified by differential parameter being below/above median
+
+```{r}
+mean(ans.adj<0)
+
+mean(ans.adj[tmp<=median(tmp)]<0)
+
+mean(ans.adj[tmp>median(tmp)]<0)
+```
+
+Not shown - bivariate dist of $(Sn_1-Sn_0,Sp_1-Sp_0)$.
+
+```{r}
+plot((sn.1-sn.0)[plt], (sp.1-sp.0)[plt])
+abline(h=0)
+abline(v=0)
+```
+
+
+
